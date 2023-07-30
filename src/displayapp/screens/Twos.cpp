@@ -2,7 +2,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <lvgl/lvgl.h>
-
+ 
 using namespace Pinetime::Applications::Screens;
 
 Twos::Twos() {

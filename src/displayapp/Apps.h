@@ -18,6 +18,7 @@ namespace Pinetime {
       Music,
       Paint,
       Paddle,
+      Adder,
       Twos,
       HeartRate,
       Navigation,
