@@ -2,7 +2,7 @@
 #include "displayapp/DisplayApp.h"
 #include "displayapp/screens/Adder.h"
 #include <cstdlib> //randr
-
+#include "task.h"
 
 using namespace Pinetime::Applications::Screens;
 
@@ -14,13 +14,13 @@ Adder::Adder(Pinetime::Components::LittleVgl& lvgl) : lvgl{lvgl}{
   TileBuffer = new lv_color_t[TileBufferSize];
 
 
-  DisplayHeight = LV_VER_RES_MAX;
-  DisplayWidth = LV_HOR_RES_MAX;
+  DisplayHeight = LV_VER_RES;
+  DisplayWidth = LV_HOR_RES;
 
-  FieldHeight = DisplayHeight/TileSize-1;
-  FieldWidth = DisplayWidth/TileSize;
+  FieldHeight = DisplayHeight/TileSize-2;
+  FieldWidth = DisplayWidth/TileSize-2;
   FieldOffsetHorizontal = (DisplayWidth-FieldWidth*TileSize)/2;
-  FieldOffsetVertical = (DisplayHeight-FieldHeight*TileSize)/2 + TileSize/2;
+  FieldOffsetVertical = (DisplayHeight-FieldHeight*TileSize)/2 + (TileSize+0.5)/2;
 
   
   FieldSize = FieldWidth*FieldHeight;
@@ -31,14 +31,12 @@ Adder::Adder(Pinetime::Components::LittleVgl& lvgl) : lvgl{lvgl}{
 
 
   
-  for(int ti=0; ti<TileBufferSize;ti++)
+  for(unsigned int ti=0; ti<TileBufferSize;ti++)
     TileBuffer[ti]=LV_COLOR_WHITE;
 
   createLevel();
 
   taskRefresh = lv_task_create(RefreshTaskCallback, AdderDelayInterval, LV_TASK_PRIO_MID, this);
-
- 
 }
 
 Adder::~Adder() {
@@ -70,9 +68,9 @@ void Adder::GameOver(){
     unsigned int Digit[]={7,0,5,3};
 
     unsigned int Offset = FieldOffsetHorizontal>FieldOffsetVertical? FieldOffsetHorizontal: FieldOffsetVertical;
-    for(int r= 3* Offset; r<DisplayWidth - 4*Offset;r+=16){
-      for(int i=0; i<4;i++){
-        for(int j=0; j<64; j++)
+    for(unsigned int r= 3* Offset; r<DisplayWidth - 4*Offset;r+=16){
+      for(unsigned int i=0; i<4;i++){
+        for(unsigned int j=0; j<64; j++)
           DigitBuffer[63-j]=(DigitFont[Digit[i]][j/8] & 1<<j%8) ?LV_COLOR_WHITE:LV_COLOR_BLACK; //Bitmagic to map the font to an image array
 
         lv_area_t area;
@@ -96,8 +94,14 @@ bool Adder::OnTouchEvent(Pinetime::Applications::TouchEvents event){
     case TouchEvents::SwipeUp: AdderDirection=-FieldWidth; break;
     case TouchEvents::SwipeDown: AdderDirection=+FieldWidth;break;
     case TouchEvents::SwipeRight: AdderDirection=1; break;
+    case TouchEvents::LongTap: FullReDraw(); break;
+    default:break;
   }
+  if(prevAdderDirection==-AdderDirection)
+    AdderDirection=-AdderDirection;
 
+  if(AdderDirection!=prevAdderDirection)
+    prevAdderDirection=AdderDirection;
   return true;
 }
 
@@ -116,17 +120,18 @@ MoveConsequence Adder::checkMove(){
 void Adder::updateScore(unsigned int Score){
     unsigned int Digit[]={0,Score%10,(Score%100-Score%10)/10,(Score-Score%100)/100};
 
-    for(int i=0; i<4;i++){
-      for(int j=0; j<64; j++)
+    for(unsigned int i=0; i<4;i++){
+      for(unsigned int j=0; j<64; j++)
         DigitBuffer[j]=(DigitFont[Digit[i]][j/8] & 1<<j%8) ?LV_COLOR_WHITE:LV_COLOR_BLACK; //Bitmagic to map the font to an image array
 
       lv_area_t area;
-      area.x1 = DisplayWidth - 10 - 8*i;
-      area.y1 = 2;
+      area.x1 = DisplayWidth/2 +10 - 8*i;
+      area.y1 = 4;
       area.x2 = area.x1 + 7;
       area.y2 = area.y1 + 7;
       lvgl.SetFullRefresh(Components::LittleVgl::FullRefreshDirections::None);
       lvgl.FlushDisplay(&area, DigitBuffer);
+      vTaskDelay(1);//Hack to give give the system time to refresh
     }
     
       
@@ -134,7 +139,7 @@ void Adder::updateScore(unsigned int Score){
 void Adder::createFood(){
     Blanks.clear();
 
-    for (int i = 0; i < FieldSize; ++i) 
+    for(unsigned int i = 0; i < FieldSize; ++i) 
         if (Field[i] == BLANK) 
             Blanks.push_back(i);
 
@@ -167,11 +172,10 @@ void Adder::updatePosition(){
 }
 
 void Adder::FullReDraw(){
-    lv_area_t area;
-    lv_color_t selectColor=LV_COLOR_BLACK;
-
-  for(int x=0; x < FieldWidth; x++){
-    for(int y=0; y < FieldHeight; y++){
+  lv_color_t selectColor=LV_COLOR_BLACK;
+  
+  for(unsigned int x=0; x < FieldWidth; x++){
+    for(unsigned int y=0; y < FieldHeight; y++){
 
 
       switch(Field[y*FieldWidth+x]){
@@ -180,16 +184,18 @@ void Adder::FullReDraw(){
             case FOOD: selectColor=LV_COLOR_GREEN;break;
             default: selectColor=LV_COLOR_BLACK;break;
         }
-      for(int ti=0; ti<TileBufferSize;ti++)
+      for(unsigned int ti=0; ti<TileBufferSize;ti++)
         TileBuffer[ti]=selectColor;
-    
+
       lv_area_t area;
+
       area.x1 = x*TileSize+FieldOffsetHorizontal;
       area.y1 = y*TileSize+FieldOffsetVertical;
       area.x2 = area.x1 + TileSize - 1;
       area.y2 = area.y1 + TileSize- 1;
-      lvgl.SetFullRefresh(Components::LittleVgl::FullRefreshDirections::None);
       lvgl.FlushDisplay(&area, TileBuffer);
+      lvgl.SetFullRefresh(Components::LittleVgl::FullRefreshDirections::None);
+      vTaskDelay(1);//Hack to give give the system time to refresh
     }
   }
 }
@@ -199,7 +205,7 @@ void Adder::Refresh(){
 }
 
 void Adder::updateSingleTile(unsigned int FieldPosX,unsigned int FieldPosY,lv_color_t Color){
-  for(int ti=0; ti<TileBufferSize;ti++)
+  for(unsigned int ti=0; ti<TileBufferSize;ti++)
     TileBuffer[ti]=Color;
     
   lv_area_t area;
@@ -207,12 +213,13 @@ void Adder::updateSingleTile(unsigned int FieldPosX,unsigned int FieldPosY,lv_co
   area.y1 = FieldPosY*TileSize+FieldOffsetVertical;
   area.x2 = area.x1 + TileSize - 1;
   area.y2 = area.y1 + TileSize- 1;
-  lvgl.SetFullRefresh(Components::LittleVgl::FullRefreshDirections::None);
   lvgl.FlushDisplay(&area, TileBuffer);
-
+  lvgl.SetFullRefresh(Components::LittleVgl::FullRefreshDirections::None);
+  vTaskDelay(1);//Hack to give give the system time to refresh
 }
 
 void Adder::updateDisplay(){
+  lvgl.SetFullRefresh(Components::LittleVgl::FullRefreshDirections::None);
   updatePosition();
   if(!AppReady){
     FullReDraw();
@@ -222,8 +229,8 @@ void Adder::updateDisplay(){
     AppReady=true;
   }else{
     updateSingleTile(AdderBody.front()%FieldWidth,AdderBody.front()/FieldWidth,LV_COLOR_YELLOW);
-    updateSingleTile(AdderBody.back()%FieldWidth,AdderBody.back()/FieldWidth,LV_COLOR_BLACK); 
-  }
+    updateSingleTile(AdderBody.back()%FieldWidth,AdderBody.back()/FieldWidth,LV_COLOR_BLACK);
+  }  
 }
 
 
