@@ -18,7 +18,7 @@ Adder::Adder(Pinetime::Components::LittleVgl& lvgl) : lvgl{lvgl}{
   DisplayWidth = LV_HOR_RES;
 
   FieldHeight = DisplayHeight/TileSize-2;
-  FieldWidth = DisplayWidth/TileSize-2;
+  FieldWidth = DisplayWidth/TileSize-1;
   FieldOffsetHorizontal = (DisplayWidth-FieldWidth*TileSize)/2;
   FieldOffsetVertical = (DisplayHeight-FieldHeight*TileSize)/2 + (TileSize+0.5)/2;
 
@@ -48,7 +48,7 @@ Adder::~Adder() {
 
 void Adder::InitBody(){
   AdderBody.clear();
-  unsigned int start_position = FieldWidth * FieldHeight/2 + FieldWidth/2 + 2;
+  unsigned int start_position = (FieldHeight/2)*FieldWidth + FieldWidth/2 + 2;
   unsigned int body[]={start_position,start_position-1};
   AdderBody.assign(body,body+2);
 }
@@ -118,14 +118,16 @@ MoveConsequence Adder::checkMove(){
 }
 
 void Adder::updateScore(unsigned int Score){
+    
     unsigned int Digit[]={0,Score%10,(Score%100-Score%10)/10,(Score-Score%100)/100};
 
+    //Print Score
     for(unsigned int i=0; i<4;i++){
       for(unsigned int j=0; j<64; j++)
         DigitBuffer[j]=(DigitFont[Digit[i]][j/8] & 1<<j%8) ?LV_COLOR_WHITE:LV_COLOR_BLACK; //Bitmagic to map the font to an image array
 
       lv_area_t area;
-      area.x1 = DisplayWidth/2 +10 - 8*i;
+      area.x1 = DisplayWidth - 16 - 8*i;
       area.y1 = 4;
       area.x2 = area.x1 + 7;
       area.y2 = area.y1 + 7;
@@ -133,6 +135,25 @@ void Adder::updateScore(unsigned int Score){
       lvgl.FlushDisplay(&area, DigitBuffer);
       vTaskDelay(1);//Hack to give give the system time to refresh
     }
+
+    //Check if HighScore changed
+    unsigned int HScore = (HighScore > Score) ? HighScore:Score;
+    unsigned int HS_Digit[]={0,HScore%10,(HScore%100-HScore%10)/10,(HScore-HScore%100)/100};
+    //Print Highscore
+    for(unsigned int i=0; i<4;i++){
+      for(unsigned int j=0; j<64; j++)
+        DigitBuffer[j]=(DigitFont[HS_Digit[i]][j/8] & 1<<j%8) ?LV_COLOR_WHITE:LV_COLOR_BLACK; //Bitmagic to map the font to an image array
+
+      lv_area_t area;
+      area.x1 = 40 - 8*i;
+      area.y1 = 4;
+      area.x2 = area.x1 + 7;
+      area.y2 = area.y1 + 7;
+      lvgl.SetFullRefresh(Components::LittleVgl::FullRefreshDirections::None);
+      lvgl.FlushDisplay(&area, DigitBuffer);
+      vTaskDelay(1);//Hack to give give the system time to refresh
+    }
+    HighScore=HScore;
     
       
 }

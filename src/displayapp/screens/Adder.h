@@ -47,6 +47,7 @@ namespace Pinetime {
         Pinetime::Components::LittleVgl& lvgl;
         lv_task_t* taskRefresh;
 
+        unsigned int HighScore=2;
         void createFood();
         void InitBody();
 
