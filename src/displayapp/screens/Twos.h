@@ -1,8 +1,8 @@
 #pragma once
 
-#include <stdlib.h>
-#include <lvgl/src/lv_core/lv_obj.h>
+#include "displayapp/apps/Apps.h"
 #include "displayapp/screens/Screen.h"
+#include "displayapp/Controllers.h"
 
 namespace Pinetime {
   namespace Applications {
@@ -36,5 +36,15 @@ namespace Pinetime {
         bool placeNewTile();
       };
     }
+
+    template <>
+    struct AppTraits<Apps::Twos> {
+      static constexpr Apps app = Apps::Twos;
+      static constexpr const char* icon = "2";
+
+      static Screens::Screen* Create(AppControllers& /*controllers*/) {
+        return new Screens::Twos();
+      };
+    };
   }
 }
